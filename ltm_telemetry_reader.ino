@@ -1,4 +1,5 @@
 #include <SoftwareSerial.h>
+#include "printf.h"
 
 SoftwareSerial ltmSerial(8, 9);
 
@@ -9,6 +10,9 @@ void setup() {
   }
 
   ltmSerial.begin(9600);
+
+  printf_begin();
+  
 }
 
 enum ltmStates {
@@ -31,6 +35,42 @@ enum ltmStates {
 #define OFRAMELENGTH 18
 #define NFRAMELENGTH 10
 
+const char* flightModes[] = {
+  "Manual",
+  "Rate",
+  "Angle",
+  "Horizon",
+  "Acro",
+  "Stabilized1",
+  "Stabilized2",
+  "Stabilized3",
+  "Altitude Hold",
+  "GPS Hold",
+  "Waypoints",
+  "Head free",
+  "Circle",
+  "RTH",
+  "Follow me",
+  "Land",
+  "Fly by wire A",
+  "Fly by wire B",
+  "Cruise",
+  "Unknown"
+};
+
+typedef struct remoteData_s {
+  int pitch;
+  int roll;
+  int heading;
+  uint16_t voltage;
+  byte rssi;
+  bool armed;
+  bool failsafe;
+  byte flightmode;
+} remoteData_t;
+
+remoteData_t remoteData;
+
 uint8_t serialBuffer[LONGEST_FRAME_LENGTH];
 uint8_t state = IDLE;
 char frameType;
@@ -45,7 +85,21 @@ int readInt(uint8_t offset) {
   return (int) serialBuffer[offset] + ((int) serialBuffer[offset + 1] << 8);
 }
 
+uint32_t nextDisplay = 0; 
+
 void loop() {
+
+  if (millis() >= nextDisplay) {
+//    Serial.print("Pitch:");
+//    Serial.println(remoteData.pitch);
+//    Serial.print("Roll:");
+//    Serial.println(remoteData.roll);
+//    Serial.print("Heading:");
+//    Serial.println(remoteData.heading);
+    Serial.println(flightModes[remoteData.flightmode]);
+
+    nextDisplay = millis() + 1000;
+  }
 
   if (ltmSerial.available()) {
 
@@ -96,20 +150,20 @@ void loop() {
         /*
          * If YES, check checksum and execute data processing
          */
- 
         
         if (frameType == 'A') {
-          Serial.println(readInt(0));
-          /*
-          Serial.print(frameType);
-          
-          for (byte i = 0; i < receiverIndex; i++) {
-            Serial.print(serialBuffer[i]);
-            Serial.print(" ");
-          }
-  
-          Serial.println("");*/
-         }
+            remoteData.pitch = readInt(0);
+            remoteData.roll = readInt(2);
+            remoteData.heading = readInt(4);
+        }
+
+        if (frameType == 'S') {
+            remoteData.voltage = readInt(0);
+            remoteData.rssi = readByte(4);
+
+            byte raw = readByte(6);
+            remoteData.flightmode = raw >> 2;            
+        }
         state = IDLE;
         memset(serialBuffer, 0, LONGEST_FRAME_LENGTH); 
 
