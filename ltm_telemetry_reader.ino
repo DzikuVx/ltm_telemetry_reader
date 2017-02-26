@@ -7,11 +7,14 @@ Adafruit_SSD1306 display(OLED_RESET);
 
 SoftwareSerial ltmSerial(8, 9);
 
+String fixTypes[3] = {
+  "NO",
+  "2D",
+  "3D"
+};
+
 void setup() {
-//  Serial.begin(57600);
-//  while (!Serial) {
-//    delay(100);
-//  }
+  Serial.begin(9600);
 
   ltmSerial.begin(9600);
 
@@ -43,7 +46,7 @@ enum ltmStates {
 #define SFRAMELENGTH 11
 #define OFRAMELENGTH 18
 #define NFRAMELENGTH 10
-#define XFRAMELENGTH 6
+#define XFRAMELENGTH 10
 
 const char* flightModes[] = {
   "Manual",
@@ -80,7 +83,14 @@ typedef struct remoteData_s {
 
   int32_t latitude;
   int32_t longitude;
+  int32_t altitude;
+  uint8_t groundSpeed; 
   int16_t hdop;
+  uint8_t gpsFix;
+  uint8_t gpsSats;
+
+  int32_t homeLatitude;
+  int32_t homeLongitude;
 
   uint8_t sensorStatus;
 } remoteData_t;
@@ -146,32 +156,37 @@ void loop() {
     display.clearDisplay();
 
     display.setCursor(0,0);
-    display.print("P: ");
-    display.print(remoteData.pitch);
-
-    display.setCursor(65,0);
-    display.print("R: ");
-    display.print(remoteData.roll);
-
-    display.setCursor(0,10);
-    display.print("H: ");
-    display.print(remoteData.heading);
-
-    display.setCursor(65,10);
-    display.print("M: ");
-    display.print(flightModes[remoteData.flightmode]);
-
-    display.setCursor(0,20);
-    display.print("Lat: ");
+    display.print("Lat:");
     display.print(remoteData.latitude);
 
-    display.setCursor(0,30);
-    display.print("Lon: ");
+    display.setCursor(0,9);
+    display.print("Lon:");
     display.print(remoteData.longitude);
 
-    display.setCursor(0,40);
-    display.print("HDOP: ");
+    display.setCursor(0,18);
+    display.print("HDOP:");
     display.print(remoteData.hdop);
+
+    display.setCursor(0, 27);
+    display.print("Fix:");
+    display.print(fixTypes[remoteData.gpsFix]);
+
+    display.setCursor(64, 27);
+    display.print("Sat:");
+    display.print(remoteData.gpsSats);
+
+    display.setCursor(0, 36);
+    display.print("Spd:");
+    display.print(remoteData.groundSpeed);
+
+    display.setCursor(64, 36);
+    display.print("Alt:");
+    display.print(remoteData.altitude);
+
+    display.setCursor(0, 45);
+    display.print("Roll:");
+    display.print(remoteData.roll);
+
 
     display.display();
 
@@ -248,6 +263,12 @@ void loop() {
         if (frameType == 'G') {
             remoteData.latitude = readInt32(0);
             remoteData.longitude = readInt32(4);
+            remoteData.groundSpeed = readByte(8);
+            remoteData.altitude = readInt32(9);
+
+            uint8_t raw = readByte(13);
+            remoteData.gpsSats = raw >> 2;
+            remoteData.gpsFix = raw & 0x03;
         }
 
         if (frameType == 'X') {
